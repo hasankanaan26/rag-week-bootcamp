@@ -1,0 +1,26 @@
+# ============================================================
+# Docker Compose — App + ChromaDB
+# ============================================================
+# ChromaDB is included from the start but only used in Session 3+.
+# Students can run just the app for Sessions 1-2.
+# ============================================================
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+
+  chromadb:
+    image: chromadb/chroma:0.6.3
+    ports:
+      - "8100:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+
+volumes:
+  chroma_data:

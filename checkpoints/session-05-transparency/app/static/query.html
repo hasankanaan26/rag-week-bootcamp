@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acme Corp Knowledge Assistant</title>
+    <style>
+        /* Minimal, clean styling — intentionally simple for teaching */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fafafa;
+            color: #333;
+        }
+        h1 { font-size: 1.4em; margin-bottom: 4px; }
+        .subtitle { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+
+        /* Query form */
+        .query-form {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .query-form input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1em;
+        }
+        .query-form button {
+            padding: 10px 20px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        .query-form button:disabled {
+            background: #93b4f5;
+            cursor: wait;
+        }
+
+        /* Confidence badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-high { background: #d1fae5; color: #065f46; }
+        .badge-medium { background: #fef3c7; color: #92400e; }
+        .badge-low { background: #fee2e2; color: #991b1b; }
+        .badge-none { background: #e5e7eb; color: #374151; }
+
+        /* Result sections */
+        .result-box {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .result-box h2 { font-size: 1.1em; margin-bottom: 8px; }
+        .answer-text { line-height: 1.6; white-space: pre-wrap; }
+
+        /* Warning bar for weak evidence */
+        .warning-bar {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 16px;
+            font-size: 0.9em;
+            color: #92400e;
+        }
+
+        /* No-result state */
+        .no-result {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        /* Source cards */
+        .source-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+        .source-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f9fafb;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .source-header:hover { background: #f3f4f6; }
+        .source-name { font-weight: 600; }
+        .source-distance {
+            font-size: 0.8em;
+            color: #6b7280;
+            font-family: monospace;
+        }
+        .source-snippet {
+            display: none;
+            padding: 10px 12px;
+            font-size: 0.85em;
+            line-height: 1.5;
+            background: #fff;
+            border-top: 1px solid #e5e7eb;
+            white-space: pre-wrap;
+            color: #374151;
+        }
+        .source-snippet.open { display: block; }
+
+        /* Loading spinner */
+        .loading {
+            text-align: center;
+            color: #6b7280;
+            padding: 20px;
+        }
+
+        /* Sample questions */
+        .samples {
+            margin-top: 16px;
+            font-size: 0.85em;
+            color: #6b7280;
+        }
+        .samples span {
+            display: inline-block;
+            background: #f3f4f6;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin: 2px;
+            cursor: pointer;
+        }
+        .samples span:hover { background: #e5e7eb; }
+    </style>
+</head>
+<body>
+    <h1>Acme Corp Knowledge Assistant</h1>
+    <p class="subtitle">RAG-powered Q&A — Session 5: Transparent UX</p>
+
+    <div class="query-form">
+        <input type="text" id="questionInput" placeholder="Ask about Acme Corp policies..." autofocus />
+        <button id="askBtn" onclick="submitQuery()">Ask</button>
+    </div>
+
+    <div class="samples">
+        Try:
+        <span onclick="fillQuestion('How many vacation days do I get?')">vacation days</span>
+        <span onclick="fillQuestion('What is our Git branching strategy?')">Git branching</span>
+        <span onclick="fillQuestion('Can I expense a standing desk?')">expenses</span>
+        <span onclick="fillQuestion('What about time off?')">vague: time off</span>
+        <span onclick="fillQuestion('Tell me about quantum physics')">out of domain</span>
+    </div>
+
+    <div id="results" style="margin-top: 20px;"></div>
+
+    <script>
+        const input = document.getElementById('questionInput');
+        const btn = document.getElementById('askBtn');
+        const resultsDiv = document.getElementById('results');
+
+        // Submit on Enter key
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') submitQuery();
+        });
+
+        function fillQuestion(q) {
+            input.value = q;
+            input.focus();
+        }
+
+        async function submitQuery() {
+            const question = input.value.trim();
+            if (!question) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Thinking...';
+            resultsDiv.innerHTML = '<div class="loading">Retrieving and generating...</div>';
+
+            try {
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: question }),
+                });
+
+                if (!response.ok) throw new Error('Request failed: ' + response.status);
+
+                const data = await response.json();
+                renderResult(data);
+            } catch (err) {
+                resultsDiv.innerHTML =
+                    '<div class="no-result">Error: ' + err.message +
+                    '<br>Make sure you have ingested documents first (POST /ingest).</div>';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Ask';
+            }
+        }
+
+        function renderResult(data) {
+            let html = '';
+
+            // No-result state
+            if (data.no_result) {
+                html += '<div class="no-result">';
+                html += '<p style="font-size:1.1em; margin-bottom:8px;">No relevant documents found</p>';
+                html += '<p>' + escapeHtml(data.answer) + '</p>';
+                html += '</div>';
+                resultsDiv.innerHTML = html;
+                return;
+            }
+
+            // Weak evidence warning
+            if (data.confidence === 'low') {
+                html += '<div class="warning-bar">';
+                html += 'Weak evidence — the retrieved documents may not be relevant '
+                     +  'to this question. Consider rephrasing your query.';
+                html += '</div>';
+            }
+
+            // Answer box with confidence badge
+            html += '<div class="result-box">';
+            html += '<h2>Answer <span class="badge badge-' + data.confidence + '">'
+                  + data.confidence + ' confidence</span></h2>';
+            html += '<p class="answer-text">' + escapeHtml(data.answer) + '</p>';
+            html += '</div>';
+
+            // Sources panel
+            if (data.sources && data.sources.length > 0) {
+                html += '<div class="result-box">';
+                html += '<h2>Sources (' + data.chunks_used + ' chunks retrieved)</h2>';
+
+                data.sources.forEach(function(src, i) {
+                    const dist = src.distance !== undefined ? src.distance.toFixed(3) : '?';
+                    html += '<div class="source-card">';
+                    html += '<div class="source-header" onclick="toggleSnippet(this)">';
+                    html += '<span class="source-name">#' + (i + 1) + ' — ' + escapeHtml(src.source) + '</span>';
+                    html += '<span class="source-distance">distance: ' + dist + '</span>';
+                    html += '</div>';
+                    html += '<div class="source-snippet">' + escapeHtml(src.text) + '</div>';
+                    html += '</div>';
+                });
+
+                html += '</div>';
+            }
+
+            // Model info
+            html += '<div style="font-size:0.8em; color:#9ca3af; text-align:right;">';
+            html += 'Model: ' + escapeHtml(data.model);
+            html += '</div>';
+
+            resultsDiv.innerHTML = html;
+        }
+
+        function toggleSnippet(header) {
+            const snippet = header.nextElementSibling;
+            snippet.classList.toggle('open');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

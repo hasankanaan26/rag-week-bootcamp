@@ -1,0 +1,29 @@
+# Week 3: RAG Done Properly — Dependencies
+# Install with: pip install -r requirements.txt
+
+# --- Web framework (same as Weeks 1-2) ---
+fastapi==0.115.6
+uvicorn==0.34.0
+python-dotenv==1.0.1
+
+# --- HTTP client for LLM API calls ---
+httpx==0.28.1
+
+# --- Data validation (included with FastAPI, pinned for clarity) ---
+pydantic==2.10.5
+
+# --- LLM clients ---
+openai==1.59.9
+google-genai==1.5.0
+
+# --- Document parsing (used from Session 2 onward) ---
+pypdf==5.1.0
+
+# --- Vector store (used from Session 3 onward) ---
+chromadb==0.6.3
+
+# --- Evaluation (used in Session 8) ---
+requests==2.32.3
+
+# --- Document loading ---
+pyyaml==6.0.2

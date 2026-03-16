@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ChromaDB local data
+chroma_data/
+
+# Checkpoint runner temp folder
+_app_dev/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
