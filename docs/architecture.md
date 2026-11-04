@@ -1,102 +1,65 @@
-# Architecture — Week 3: RAG Done Properly
+# Architecture
 
 ## The RAG Pattern
 
-RAG (Retrieval-Augmented Generation) is a three-step process:
-
 ```
 User Question
-     │
-     ▼
-┌─────────────┐
-│  1. EMBED   │  Turn the question into a vector (list of numbers)
-└─────┬───────┘
-      │
-      ▼
-┌─────────────┐
-│ 2. RETRIEVE │  Search the vector store for similar chunks
-└─────┬───────┘
-      │
-      ▼
-┌─────────────┐
-│ 3. GENERATE │  Send the question + retrieved context to the LLM
-└─────────────┘
-      │
-      ▼
-  Grounded Answer
-  (with sources)
+     |
+     v
+[1. RETRIEVE]     Embed the question, search the vector store
+     |
+     v
+[2. INJECT]       Format retrieved chunks into the prompt
+     |
+     v
+[3. GENERATE]     Call the LLM with grounded prompt
+     |
+     v
+Grounded Answer + Sources
 ```
 
-That's it. Everything else is refinement.
-
-## How Our App Is Organized
+## Ingestion Pipeline
 
 ```
-app/
-├── main.py              ← FastAPI app, mounts all routers
-├── config.py            ← Settings from .env file
-├── models.py            ← Pydantic models (request/response shapes)
-├── llm.py               ← Sends prompts to the LLM
-│
-├── routers/
-│   ├── ask.py           ← POST /ask (plain LLM, no retrieval)
-│   ├── ingest.py        ← POST /ingest (load + chunk + embed + store)
-│   ├── search.py        ← GET /search (test vector search in isolation)
-│   ├── query.py         ← POST /query (the RAG endpoint)
-│   ├── compare.py       ← POST /compare (RAG vs plain, side-by-side)
-│   └── ui.py            ← GET /ui (browser-based query interface)
-│
-├── prompts/
-│   ├── plain_answer.py  ← System prompt for plain answers
-│   ├── grounded_answer.py ← System prompt with context injection
-│   └── rag_answer.py    ← System prompt for RAG answers
-│
-├── static/
-│   └── query.html       ← Browser UI (vanilla HTML/JS)
-│
-└── rag/
-    ├── chunker.py       ← Splits documents into chunks
-    ├── embedder.py      ← Generates vector embeddings
-    ├── store.py          ← Reads/writes ChromaDB
-    └── retriever.py     ← Searches for relevant chunks
+Files (md, csv, pdf, json)
+     |
+     v
+[Load]            Convert to plain text (loader.py)
+     |
+     v
+[Chunk]           Split into overlapping segments (chunker.py)
+     |
+     v
+[Embed]           Convert each chunk to a vector (embedder.py)
+     |
+     v
+[Store]           Persist in ChromaDB with metadata (store.py)
 ```
 
-## What Flows Where
+## Module Responsibilities
 
-### Ingestion flow (one-time, loads documents into the store)
+| Module | Job |
+|--------|-----|
+| `app/rag/loader.py` | Read any file format into plain text |
+| `app/rag/chunker.py` | Split text into chunks (fixed-size or sections) |
+| `app/rag/embedder.py` | Convert text to embedding vectors |
+| `app/rag/store.py` | Store and search chunks in ChromaDB |
+| `app/rag/retriever.py` | Orchestrate embed + search for a query |
+| `app/rag/visualize.py` | Reduce embeddings to 2D for visualization |
+| `app/prompts/*.py` | Prompt templates (visible, not hidden) |
+| `app/routers/*.py` | FastAPI endpoints |
+| `app/llm.py` | Thin wrapper around LLM API calls |
+| `app/config.py` | All settings from environment variables |
+| `app/models.py` | Pydantic request/response models |
 
-```
-Markdown files → chunker.py → embedder.py → store.py → ChromaDB
-```
+## Design Decisions
 
-### Query flow (every user question)
+**Plain functions, not classes.** Everything is a function. No service classes, no dependency injection. Students can follow the flow by reading function calls top to bottom.
 
-```
-User question → embedder.py → retriever.py → prompt template → llm.py → Answer
-                                  │
-                                  └── ChromaDB (search)
-```
+**Separate prompt files.** Each prompt is in its own file in `app/prompts/`. You can open them side-by-side to compare strict vs minimal grounding.
 
-## Key Design Decisions
+**ChromaDB (local vector store).** No cloud services needed. Persists to disk. Easy to inspect and reset. The RAG pattern works the same with any vector store.
 
-**Why plain functions instead of classes?**
-Every module exports simple functions. No inheritance, no abstract base classes. You can read each file top-to-bottom and understand what it does.
+**Dual provider support.** Both Gemini and Azure OpenAI work. Students use whichever they have access to. Provider-specific code is isolated in `llm.py` and `embedder.py`.
 
-**Why separate prompt files?**
-Prompts are the most important part of any LLM application. Keeping them in dedicated files makes them easy to find, read, and modify. You should always be able to see the exact text the LLM receives.
-
-**Why ChromaDB?**
-It's the simplest vector store to set up. It runs in-process (no separate server needed for development) and has a clean Python API. For production, you might choose Pinecone, Weaviate, or pgvector — but the RAG pattern stays the same.
-
-**Why not LangChain / LlamaIndex?**
-These frameworks hide the retrieval and prompting logic behind abstractions. For learning, you need to see every step. Once you understand the raw pattern, you can choose to use a framework later — or not.
-
-## Data Flow Summary
-
-| Step | Module | Input | Output |
-|------|--------|-------|--------|
-| Chunk | `rag/chunker.py` | Document text | List of text chunks |
-| Embed | `rag/embedder.py` | Text (chunk or query) | Vector (list of floats) |
-| Store | `rag/store.py` | Chunks + vectors | Persisted in ChromaDB |
-| Retrieve | `rag/retriever.py` | Query vector | Top-K relevant chunks |
-| Generate | `llm.py` | Prompt with context | LLM response text |
+**No LangChain/LlamaIndex.** The entire RAG pipeline is ~100 lines of explicit Python. Students see every step. Nothing is hidden behind framework abstractions.

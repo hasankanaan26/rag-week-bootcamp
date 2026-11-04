@@ -1,8 +1,8 @@
 # ============================================================
 # Docker Compose — App + ChromaDB
 # ============================================================
-# ChromaDB is included from the start but only used in Session 3+.
-# Students can run just the app for Sessions 1-2.
+# ChromaDB is included but only used from Checkpoint 2 onward.
+# Students can run just the app for Checkpoint 1.
 # ============================================================
 
 services:
@@ -22,5 +22,21 @@ services:
     volumes:
       - chroma_data:/chroma/chroma
 
+  # Postgres + pgvector — used when VECTOR_STORE=postgres (Checkpoint 4).
+  # Start just the database:  docker compose up -d pgvector
+  # Connect from pgAdmin:     localhost:5434, user rag, password rag, db rag_bootcamp
+  # Port 5434 avoids clashing with a locally installed Postgres on 5432.
+  pgvector:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: rag_bootcamp
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
 volumes:
   chroma_data:
+  pg_data:

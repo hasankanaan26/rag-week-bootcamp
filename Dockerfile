@@ -1,5 +1,8 @@
 # ============================================================
-# Dockerfile — same pattern as Weeks 1-2
+# Dockerfile — RAG Module
+# ============================================================
+# By default runs the base-app scaffold.
+# Override the CMD to run a specific checkpoint.
 # ============================================================
 
 FROM python:3.12-slim
@@ -15,4 +18,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--app-dir", "base-app"]

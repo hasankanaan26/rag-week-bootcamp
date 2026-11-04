@@ -1,7 +1,7 @@
-# Week 3: RAG Done Properly — Dependencies
+# RAG Module — Dependencies
 # Install with: pip install -r requirements.txt
 
-# --- Web framework (same as Weeks 1-2) ---
+# --- Web framework ---
 fastapi==0.115.6
 uvicorn==0.34.0
 python-dotenv==1.0.1
@@ -16,14 +16,19 @@ pydantic==2.10.5
 openai==1.59.9
 google-genai==1.5.0
 
-# --- Document parsing (used from Session 2 onward) ---
+# --- Document parsing ---
 pypdf==5.1.0
 
-# --- Vector store (used from Session 3 onward) ---
+# --- Vector store (used from Checkpoint 2 onward) ---
 chromadb==0.6.3
 
-# --- Evaluation (used in Session 8) ---
-requests==2.32.3
+# --- Postgres + pgvector (optional, Checkpoint 4 with VECTOR_STORE=postgres) ---
+psycopg[binary]==3.2.13
+
+# --- Visualization (used in Checkpoint 4) ---
+scikit-learn>=1.4.0
+matplotlib>=3.8.0
+numpy>=1.26.0
 
 # --- Document loading ---
 pyyaml==6.0.2

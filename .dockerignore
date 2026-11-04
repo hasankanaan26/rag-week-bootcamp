@@ -1,0 +1,9 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.git/
+.env
+chroma_data/
+.pytest_cache/
+_app_dev/
