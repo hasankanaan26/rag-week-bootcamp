@@ -35,3 +35,12 @@ _app_dev/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Checkpoint 5+: the simulated SharePoint workspace and run reports
+workspace/
+checkpoints/*/runs/
+
+# Slide generator (slides/src)
+slides/src/node_modules/
+slides/src/out/
+slides/src/package-lock.json
