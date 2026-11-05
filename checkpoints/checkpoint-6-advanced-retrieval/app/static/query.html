@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acme Knowledge Assistant</title>
+    <link rel="stylesheet" href="/static/ui.css">
+</head>
+<body>
+<!-- ============================================================
+     RAG Workbench — every endpoint of Checkpoint 6 in one page
+     ============================================================
+     Each tab is a <section data-panel="..."> and calls one or two
+     endpoints. All logic lives in /static/ui.js.
+     NEW in Checkpoint 5: "Ask as" and "As of" in the top bar apply
+     to Ask, RAG vs plain and Search. The Ingest tab became Sync.
+     ============================================================ -->
+
+<header class="topbar">
+    <div class="brand">
+        <h1>Acme Knowledge Assistant</h1>
+        <p>RAG workbench · Checkpoint 6</p>
+    </div>
+    <div class="who">
+        <label>Ask as
+            <select id="askAs">
+                <option value="intern">intern</option>
+                <option value="eng-manager">eng-manager</option>
+                <option value="hr-partner">hr-partner</option>
+                <option value="finance-lead">finance-lead</option>
+                <option value="sales-rep">sales-rep</option>
+            </select>
+        </label>
+        <label>As of
+            <input type="date" id="asOf" title="Empty = today's documents">
+        </label>
+    </div>
+    <div class="status" id="status">
+        <span class="chip">Connecting…</span>
+    </div>
+</header>
+
+<div class="layout">
+    <nav class="tabs" id="tabs">
+        <p class="tab-group">Answer</p>
+        <a href="#query" data-tab="query">Ask (RAG)</a>
+        <a href="#compare" data-tab="compare">RAG vs plain</a>
+        <a href="#llm" data-tab="llm">LLM only</a>
+        <p class="tab-group">Retrieve</p>
+        <a href="#search" data-tab="search">Search</a>
+        <a href="#embed" data-tab="embed">Embeddings</a>
+        <p class="tab-group">Data</p>
+        <a href="#sync" data-tab="sync">Sync</a>
+        <a href="#store" data-tab="store">Store</a>
+        <a href="#visualize" data-tab="visualize">Visualize</a>
+    </nav>
+
+    <main>
+        <!-- ---------- Ask (RAG): POST /query ---------- -->
+        <section data-panel="query">
+            <h2>Ask with RAG</h2>
+            <p class="hint">Retrieves the closest chunks, then asks the LLM to answer only from them. <code>POST /query</code></p>
+            <form class="ask-row" id="queryForm">
+                <input type="text" id="queryQuestion" placeholder="Ask about Acme Corp policies…" autocomplete="off" required>
+                <button type="submit">Ask</button>
+            </form>
+            <div class="samples" data-target="queryQuestion">
+                <span>How much can I spend per person on a team dinner?</span>
+                <span>What is the salary range for a Senior Developer?</span>
+                <span>How many days of unpaid leave can I take each year?</span>
+                <span>How many unused vacation days can I roll over?</span>
+                <span>I got an email asking me to re-confirm my expense reimbursement. Is that legit?</span>
+                <span>Which vector database does Acme run in production?</span>
+                <span>How many vacation days do I get?</span>
+                <span>Tell me about quantum physics</span>
+            </div>
+            <details class="options" open>
+                <summary>Options</summary>
+                <div class="option-grid">
+                    <label>Retrieval strategy (Checkpoint 6)
+                        <select id="queryStrategy">
+                            <option value="routed">routed: lists → lookup, else hybrid + rerank</option>
+                            <option value="hybrid_rerank">hybrid_rerank: dense + bm25, then cross-encoder</option>
+                            <option value="hybrid">hybrid: dense + bm25 (RRF)</option>
+                            <option value="rerank">rerank: dense top 20 → cross-encoder</option>
+                            <option value="parent">parent: match a sentence, return its section</option>
+                            <option value="bm25">bm25: keywords only</option>
+                            <option value="hyde">hyde: search with an LLM-written answer</option>
+                            <option value="multi_query">multi_query: three LLM rewrites, fused</option>
+                            <option value="dense">dense: Checkpoint 5 (doc-type filter applies)</option>
+                        </select>
+                    </label>
+                    <label>Doc type filter (dense only)
+                        <select id="queryDocFilter">
+                            <option value="auto">auto: LLM picks the doc type</option>
+                            <option value="off">off: search all documents</option>
+                        </select>
+                    </label>
+                    <label>Chunks to retrieve (top_k)
+                        <input type="number" id="queryTopK" min="1" max="20" value="3">
+                    </label>
+                    <label>Prompt style
+                        <select id="queryPromptStyle">
+                            <option value="default">default: strict grounding</option>
+                            <option value="minimal">minimal: loose, may hallucinate</option>
+                        </select>
+                    </label>
+                    <label>High-confidence threshold
+                        <input type="number" id="queryHigh" step="0.05" placeholder="config default">
+                    </label>
+                    <label>Low-confidence threshold
+                        <input type="number" id="queryLow" step="0.05" placeholder="config default">
+                    </label>
+                    <label>No-result threshold
+                        <input type="number" id="queryNoResult" step="0.05" placeholder="config default">
+                    </label>
+                </div>
+            </details>
+            <div class="output" id="queryOutput"></div>
+        </section>
+
+        <!-- ---------- RAG vs plain: POST /compare ---------- -->
+        <section data-panel="compare">
+            <h2>RAG vs plain LLM</h2>
+            <p class="hint">Same question, two answers: one grounded in your documents, one from the model alone. <code>POST /compare</code></p>
+            <form class="ask-row" id="compareForm">
+                <input type="text" id="compareQuestion" placeholder="Ask a question to compare…" autocomplete="off" required>
+                <input type="number" id="compareTopK" min="1" max="20" value="3" title="top_k" class="narrow">
+                <button type="submit">Compare</button>
+            </form>
+            <div class="samples" data-target="compareQuestion">
+                <span>What is the meal expense limit when travelling?</span>
+                <span>Who is the engineering manager?</span>
+                <span>What was decided in the last meeting?</span>
+                <span>How do I reset my password?</span>
+            </div>
+            <div class="output" id="compareOutput"></div>
+        </section>
+
+        <!-- ---------- LLM only: POST /ask and /ask/grounded ---------- -->
+        <section data-panel="llm">
+            <h2>LLM only (no retrieval)</h2>
+            <p class="hint">Plain asks the model directly. Grounded pastes a fixed leave-policy snippet into the prompt, the hand-made version of what RAG automates, so it only knows about leave. <code>POST /ask</code> · <code>POST /ask/grounded</code></p>
+            <form class="ask-row" id="llmForm">
+                <input type="text" id="llmQuestion" placeholder="Ask the model directly…" autocomplete="off" required>
+                <button type="submit">Ask both</button>
+            </form>
+            <div class="samples" data-target="llmQuestion">
+                <span>How many vacation days do I get?</span>
+                <span>What is the remote work policy?</span>
+            </div>
+            <div class="output" id="llmOutput"></div>
+        </section>
+
+        <!-- ---------- Search: GET /search ---------- -->
+        <section data-panel="search">
+            <h2>Semantic search</h2>
+            <p class="hint">Retrieval only, no LLM. Shows which chunks are closest to your text and how close. <code>GET /search</code></p>
+            <form class="ask-row" id="searchForm">
+                <input type="text" id="searchQuery" placeholder="Search the knowledge base…" autocomplete="off" required>
+                <input type="number" id="searchTopK" min="1" max="40" value="5" title="top_k" class="narrow">
+                <button type="submit">Search</button>
+            </form>
+            <div class="samples" data-target="searchQuery">
+                <span>parental leave</span>
+                <span>code review rules</span>
+                <span>working from abroad</span>
+                <span>pizza</span>
+            </div>
+            <div class="output" id="searchOutput"></div>
+        </section>
+
+        <!-- ---------- Embeddings: POST /embed ---------- -->
+        <section data-panel="embed">
+            <h2>Embedding explorer</h2>
+            <p class="hint">Embed a few sentences and compare their distances. Similar meaning means small distance. One text per line. <code>POST /embed</code></p>
+            <form id="embedForm">
+                <textarea id="embedTexts" rows="5" required>How many vacation days do I get?
+How much annual leave am I entitled to?
+What is the expense limit for meals?
+The cat sat on the mat.</textarea>
+                <button type="submit">Compare texts</button>
+            </form>
+            <div class="output" id="embedOutput"></div>
+        </section>
+
+        <!-- ---------- Sync: POST /sync (replaces POST /ingest) ---------- -->
+        <section data-panel="sync">
+            <h2>Sync with SharePoint</h2>
+            <p class="hint">Compares <code>workspace/sharepoint</code> with the live index and decides one action per document. A dry run writes nothing. <code>POST /sync</code></p>
+            <form id="syncForm">
+                <label class="check">
+                    <input type="checkbox" id="syncApply">
+                    Apply the plan (write to the index). Unticked = dry run.
+                </label>
+                <button type="submit">Run sync</button>
+            </form>
+            <div class="output" id="syncOutput"></div>
+        </section>
+
+        <!-- ---------- Store: GET /store/inspect ---------- -->
+        <section data-panel="store">
+            <h2>Store inspector</h2>
+            <p class="hint">Look inside the vector store: every chunk, its source and its vector. <code>GET /store/inspect</code></p>
+            <form id="storeForm">
+                <div class="option-grid">
+                    <label>Source file
+                        <select id="storeSource"><option value="">All files</option></select>
+                    </label>
+                    <label>Limit
+                        <input type="number" id="storeLimit" min="1" max="500" value="50">
+                    </label>
+                </div>
+                <label class="check">
+                    <input type="checkbox" id="storeEmbeddings" checked>
+                    Show embedding preview
+                </label>
+                <button type="submit">Inspect</button>
+            </form>
+            <div class="output" id="storeOutput"></div>
+        </section>
+
+        <!-- ---------- Visualize: GET /visualize ---------- -->
+        <section data-panel="visualize">
+            <h2>Embedding map</h2>
+            <p class="hint">Every chunk's vector squashed to 2D. Chunks about the same topic land near each other. <code>GET /visualize</code></p>
+            <form class="ask-row" id="visualizeForm">
+                <select id="visualizeMethod">
+                    <option value="pca">PCA: fast, keeps global layout</option>
+                    <option value="tsne">t-SNE: slower, keeps local clusters</option>
+                </select>
+                <button type="submit">Draw</button>
+            </form>
+            <div class="output" id="visualizeOutput"></div>
+        </section>
+    </main>
+</div>
+
+<script src="/static/ui.js"></script>
+</body>
+</html>
