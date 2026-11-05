@@ -1,6 +1,6 @@
 # RAG Module — Hands-On Teaching Repository
 
-A 4-session, checkpoint-based teaching repository for building a Retrieval-Augmented Generation (RAG) system from scratch. Students build incrementally from a plain LLM scaffold to a full RAG pipeline with failure handling and visualization.
+A checkpoint-based teaching repository for building a Retrieval-Augmented Generation (RAG) system from scratch. Students build incrementally from a plain LLM scaffold to a full RAG pipeline with failure handling and visualization (checkpoints 1 to 4), then make it production-grade: ingestion that survives a changing source (checkpoint 5) and retrieval they can defend with numbers (checkpoint 6).
 
 ## What Students Learn
 
@@ -10,6 +10,8 @@ A 4-session, checkpoint-based teaching repository for building a Retrieval-Augme
 - Handling RAG failure modes (no-result, weak evidence)
 - Comparing RAG vs plain LLM answers
 - Visualizing embeddings with t-SNE and PCA
+- Production ingestion: connectors, format-aware parsing, permissions, versions, PII, sync jobs, blue/green rebuilds (checkpoint 5)
+- Advanced retrieval: hybrid search, re-ranking, parent-document, HyDE, routing, measured on a golden set with regression checks and an LLM judge (checkpoint 6)
 
 ## Repository Structure
 
@@ -20,13 +22,17 @@ checkpoints/
     checkpoint-2-vector-store/       <- Embeddings, ChromaDB, semantic search
     checkpoint-3-rag-pipeline/       <- Full RAG endpoint, compare, logging
     checkpoint-4-analysis/           <- Confidence, failure modes, visualization
+    checkpoint-5-production-ingestion/  <- Sync job, parsers, permissions, versions, PII (Session 8)
+    checkpoint-6-advanced-retrieval/    <- Hybrid, re-rank, parent-doc, HyDE, routing, evals (Session 9)
 data/knowledge/                     <- Sample Acme Corp knowledge base (10 docs)
+data/enterprise/                    <- Acme's "SharePoint": 20 files, 7 formats, a register, 5 users, weekend events
 docs/                               <- Architecture, common mistakes, demo questions
 instructor-notes/                   <- Per-checkpoint teaching guides
+slides/                             <- Session 8 and 9 decks (SE Factory), and their generator
 tests/                              <- Unit tests (run without API keys)
 ```
 
-## 4-Checkpoint Progression
+## Checkpoint Progression
 
 | Checkpoint | Focus | Key Endpoints |
 |------------|-------|---------------|
@@ -34,6 +40,11 @@ tests/                              <- Unit tests (run without API keys)
 | 2 — Vector Store | Embeddings, ChromaDB, semantic search | `/search`, `/embed`, `/store/inspect` |
 | 3 — RAG Pipeline | Full RAG loop, comparison, logging | `/query`, `/compare` |
 | 4 — Analysis | Confidence, failure modes, visualization | `/ui`, `/visualize` |
+| 5 — Production Ingestion | Sync instead of ingest; permissions and versions inside the search | `/sync`, `/documents`, `/search?user=&as_of=` |
+| 6 — Advanced Retrieval | Nine strategies, one scoreboard; routing; LLM judge | `/retrieve?strategy=`, `/query?strategy=` |
+
+Checkpoints 5 and 6 also come with scripts (`sharepoint.py`, `sync.py`, `evaluate.py`,
+`compare.py`, `ask.py`, `judge.py`, `warmup.py`): see each checkpoint's README.
 
 Each checkpoint builds on the previous one. See [CHECKPOINTS.md](CHECKPOINTS.md) for detailed descriptions.
 
@@ -83,17 +94,28 @@ python run_checkpoint.py checkpoint-1-foundations
 python run_checkpoint.py checkpoint-2-vector-store
 python run_checkpoint.py checkpoint-3-rag-pipeline
 python run_checkpoint.py checkpoint-4-analysis
+python run_checkpoint.py checkpoint-5-production-ingestion
+python run_checkpoint.py checkpoint-6-advanced-retrieval
 ```
 
 Each checkpoint starts on http://localhost:8000 with Swagger at `/docs`.
+
+Before Sessions 8 and 9, download the local models once (about 170 MB, slow on class Wi-Fi):
+
+```bash
+python checkpoints/checkpoint-6-advanced-retrieval/warmup.py
+```
 
 ### Running Tests
 
 ```bash
 pytest tests/ -v
+pytest checkpoints/checkpoint-5-production-ingestion/tests -q
+pytest checkpoints/checkpoint-6-advanced-retrieval/tests -q
 ```
 
-Tests run without API keys or a running server.
+Tests run without API keys or a running server. Run each checkpoint's tests on their own:
+every checkpoint has its own `app` package.
 
 ## Tech Stack
 

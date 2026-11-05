@@ -1,0 +1,19 @@
+{
+  "name": "rag-week-slides",
+  "private": true,
+  "description": "Generates the Session 8 and 9 decks (SE Factory style) from code: one spec, a .pptx and an HTML preview.",
+  "scripts": {
+    "s08": "node s08.js out",
+    "s09": "node s09.js out",
+    "build": "node s08.js out && node s09.js out",
+    "shots": "node shoot.js out/s08-preview.html out/shots08 && node shoot.js out/s09-preview.html out/shots09"
+  },
+  "dependencies": {
+    "playwright-core": "1.48.2",
+    "pptxgenjs": "3.12.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-icons": "5.4.0",
+    "sharp": "0.33.5"
+  }
+}
